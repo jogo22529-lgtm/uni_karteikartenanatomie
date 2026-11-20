@@ -1,0 +1,373 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Anatomie Karteikarten</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1d2733;--mute:#66758a;--line:#dde3ea;--acc:#2f6fed;--ok:#1f9d55;--bad:#d6453d}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--card:#1a222d;--ink:#e8edf3;--mute:#92a0b3;--line:#2b3644;--acc:#6b9bff;--ok:#3ecf7c;--bad:#ff7a70;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10151c;--card:#1a222d;--ink:#e8edf3;--mute:#92a0b3;--line:#2b3644;--acc:#6b9bff;--ok:#3ecf7c;--bad:#ff7a70;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:22px;margin:0 0 16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.big{font-size:44px;font-weight:700}
+.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.mute{color:var(--mute);font-size:14px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 16px;cursor:pointer}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.cat{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.cat:first-of-type{border-top:0}
+.cat .bar{margin-top:6px}
+.cat>div:first-child{flex:1}
+.card{min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;cursor:pointer;user-select:none}
+.card .tag{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-bottom:12px}
+.card .txt{font-size:26px;font-weight:600}
+.card.back .txt{color:var(--acc)}
+.card .hint{margin-top:18px;font-size:13px;color:var(--mute)}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.answers button{padding:16px;font-weight:600;font-size:17px}
+.no{color:var(--bad);border-color:var(--bad)}
+.yes{color:var(--ok);border-color:var(--ok)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
+.hidden{display:none!important}
+</style>
+<main>
+<div id="home">
+  <h1>Anatomie Karteikarten</h1>
+  <div class="panel">
+    <div class="mute">Gesamtfortschritt</div>
+    <div class="big" id="pct">0 %</div>
+    <div class="bar"><i id="pbar"></i></div>
+    <div class="mute" id="pcount" style="margin-top:6px"></div>
+  </div>
+  <div class="panel">
+    <div class="row">
+      <button class="primary" id="startAll">Alle offenen lernen</button>
+      <button id="resetBtn">Fortschritt zurücksetzen</button>
+      <span id="rconf" hidden><button class="no" id="rYes">Ja, alles löschen</button> <button id="rNo">Abbrechen</button></span>
+    </div>
+    <p class="mute" style="margin-bottom:0">Falsch beantwortete Karten kommen so lange wieder, bis du sie richtig hattest. Der Fortschritt bleibt in diesem Browser gespeichert.</p>
+  </div>
+  <div class="panel" id="cats"></div>
+</div>
+
+<div id="study" class="hidden">
+  <div class="top">
+    <button id="back">← Übersicht</button>
+    <div class="mute" id="sinfo"></div>
+  </div>
+  <div class="bar" style="margin-bottom:6px"><i id="sbar"></i></div>
+  <div class="mute" id="sgl" style="margin-bottom:14px"></div>
+  <div class="panel card" id="card"></div>
+  <div class="answers hidden" id="ans">
+    <button class="no" id="bNo">✗ Falsch (←)</button>
+    <button class="yes" id="bYes">✓ Richtig (→)</button>
+  </div>
+  <div class="mute" style="text-align:center;margin-top:10px">Leertaste / Tippen = umdrehen</div>
+</div>
+</main>
+<script>
+const RAW=`Grundlagen|Holobiont|Eukaryotes Lebewesen + Prokaryoten (z. B. Bakterien)
+Grundlagen|Mikrobiom|Besiedlung des Körpers mit Bakterien und Pilzen
+Grundlagen|Virobiom|Gesamtheit der Viren im Körper (relativ unerforscht)
+Grundlagen|Dreigliederung des Körpers (Gestaltgliederung)|Kopf, Rumpf, Extremitäten
+Grundlagen|Funktion des Kopfes|Informationsbereich
+Grundlagen|Funktion des Rumpfes|Transport-/Verteilungsprozesse und Stoffwechsel
+Grundlagen|Funktion der Extremitäten|Lokomotion
+Grundlagen|Skelettart des Kopfes|Außenskelett (Exoskelett)
+Grundlagen|Skelettart der Gliedmaßen|Innenskelett
+Grundlagen|Metamerie|Wiederholung gleicher Formelemente (typisch für den Rumpf)
+Grundlagen|Grundgliederung der Gliedmaßen|Keine Metamerie, sondern longitudinale Grundgliederung
+Grundlagen|Thorakaler Rumpfabschnitt: Funktion|Gaswechsel, Transport und Verteilung
+Grundlagen|Abdominaler Rumpfabschnitt: Funktion|Stoffwechsel
+Grundlagen|Beckenbereich: Funktion|Fortpflanzung
+Grundlagen|Knöcherner Organschutz|Nimmt von kranial nach kaudal ab
+Grundlagen|Gestaltungsprinzip des Körpers|Bilaterale Symmetrie
+Grundlagen|Medianebene|Sagittalebene, die den Körper in zwei gleiche Hälften teilt
+Grundlagen|Symmetrie der Organe: am stärksten in …|Informationssystem
+Grundlagen|Symmetrie der Organe: gering bei …|Stoffwechsel (unpaarig: Magen-Darm-Trakt, Leber, Milz)
+Grundlagen|Situs inversus|Innere Organe spiegelverkehrt (ca. 1 : 10 000)
+Grundlagen|Dextrokardie bei Trisomie 13|Pätau-Syndrom
+Grundlagen|1. Gestaltwandel|5.–7. Lebensjahr: rundliches Kleinkind wird zum schlanken Schulkind
+Grundlagen|2. Gestaltwandel|12.–14. Lebensjahr: Schulkindform wird zur adulten Form
+Grundlagen|Verletzte Bänder heilen meist mit …|funktioneller Schiene
+Grundlagen|Viele Sehnenverletzungen benötigen …|nur eine Ruhigstellung
+Richtungen und Ebenen|kranial|Zum Kopf hin
+Richtungen und Ebenen|kaudal|Zum Steiß/Fuß hin
+Richtungen und Ebenen|dorsal|Hinten
+Richtungen und Ebenen|ventral|Vorne
+Richtungen und Ebenen|palmar / volar|Zur Handfläche hin (Vorderseite der Hand)
+Richtungen und Ebenen|proximal|Zum Rumpf hin
+Richtungen und Ebenen|distal|Vom Rumpf weg
+Richtungen und Ebenen|lateral|Zur Seite hin (von der Mitte weg)
+Richtungen und Ebenen|medial|Zur Mitte hin
+Richtungen und Ebenen|radial|Zur Speichenseite (Daumenseite)
+Richtungen und Ebenen|ulnar|Zur Ellenseite (Kleinfingerseite)
+Richtungen und Ebenen|Sagittalebene|Von vorn nach hinten, teilt in rechts und links
+Richtungen und Ebenen|Horizontalebene|Teilt den Körper in oben und unten
+Richtungen und Ebenen|Koronalebene|Teilt den Körper in vorne und hinten
+Haut|Cutis|Haut
+Haut|Fläche der Haut|Ca. 2 m²
+Haut|Anteil der Haut am Körpergewicht|Ca. 20 %
+Haut|Anteil der Haut am Körperwasser|Ca. 25 %
+Haut|Epidermis|Oberhaut – ohne Blutgefäße
+Haut|Dermis|Lederhaut – elastische Fasern, Papillen mit Gefäßen
+Haut|Subcutis|Unterhautfettgewebe
+Haut|Hautanhangsgebilde|Drüsen, Nervenendorgane, Haare, Nägel
+Haut|Felderhaut: Anteil|96 %
+Haut|Leistenhaut: Anteil|4 %
+Haut|Leistenhaut: Vorkommen|Hohlhand und Fußsohle
+Haut|Felderhaut: Merkmale|Unregelmäßige Papillen, behaart; Talg-, Schweiß- und apokrine Drüsen
+Haut|Leistenhaut: Merkmale|Unbehaart, Papillen in Reihen, nur ekkrine Schweißdrüsen (Matratzenkonstruktion)
+Haut|Leistenhaut: Funktion|Griffsicherheit und Rutschfestigkeit
+Haut|Stratum lucidum|Glanzschicht – zusätzliche Epidermisschicht der Leistenhaut
+Haut|Stratum corneum|Hornschicht
+Haut|Fingerabdruck: Grundmuster|Bogen, Schleife, Doppelschleife, Wirbel
+Haut|Fingerabdruck: Entstehung|In der Fetalzeit angelegt, lebenslang unverändert, auch bei eineiigen Zwillingen verschieden
+Haut|Stehenbleibende Hautfalte beim Abheben|Alter oder Wassermangel
+Haut|3 Säulen der Haut-Infektabwehr|Physikalisch, chemisch, biologisch
+Haut|Physikalische Hautbarriere|Hornschicht (Ziegelmauer-Prinzip)
+Haut|Chemische Hautbarriere|Säureschutzmantel + antimikrobielle Peptide (AMPs)
+Haut|Biologische Hautbarriere|Hautmikrobiom
+Haut|pH-Wert des Säureschutzmantels|4,5–5,5
+Haut|Sich schnell ausbreitende Rötung nach Hautläsion: Verdacht auf|Wundrose
+Haut|Rote Streifen von der Wunde ausgehend bedeuten|Lymphbahnentzündung (Sepsis-Gefahr)
+Haut|Sonnenbrand (med.)|Dermatitis solaris (v. a. UV-B)
+Haut|Sonnenbrand Grad 1|Rötung, Hitzegefühl, leichtes Ödem; Barriere intakt
+Haut|Sonnenbrand Grad 2|Blasenbildung; Barriere zerstört, Infektionsrisiko hoch
+Haut|Sonnenbrand Grad 3|Nekrosen oberer Hautschichten, oft Fieber und Kreislaufprobleme
+Haut|Druckrezeptoren|Vater-Pacini-Körperchen
+Haut|Dehnungsrezeptoren|Ruffini-Körperchen
+Haut|Tastrezeptoren|Meissner-Körperchen und Merkel-Zellen
+Haut|Weitere Hautrezeptoren (3)|Schmerz-, Thermo- und Haarfollikelrezeptoren
+Haut|Zweipunktdiskrimination|Test der Tastrezeptoren (Oberflächensensibilität), z. B. mit Weber-Tastzirkel
+Haut|Fußwarzen sind eine Folge von …|Infekt nach Hautläsion
+Nagel|Nagelplatte: Teile|Nagelwurzel und Nagelkörper
+Nagel|Radix unguis|Nagelwurzel – verdeckter Teil in der Nageltasche
+Nagel|Corpus unguis|Nagelkörper – freiliegender Teil der Nagelplatte
+Nagel|Vallum unguis|Nagelwall (Paronychium) – proximale und laterale Einfassung
+Nagel|Sulcus matricis unguis|Nagelfalz – Vertiefung zwischen Nagelplatte und Nagelwall
+Nagel|Matrix unguis|Nagelmatrix – Zone der Nagelbildung
+Nagel|Lectulus unguis|Nagelbett – Verbindung zum Periost der Endphalanx
+Nagel|Wachstum des Fingernagels|Ca. 0,5–1,2 mm/Woche (schneller als Zehennagel)
+Nagel|Erneuerung des Fingernagels|Ca. 6 Monate
+Nagel|Tüpfelnägel|z. B. bei Schuppenflechte
+Hand und Gelenke|Carpus|Handwurzel
+Hand und Gelenke|Metacarpus|Mittelhand
+Hand und Gelenke|Digiti manus|Finger
+Hand und Gelenke|Phalangen D2–D5|3 Glieder
+Hand und Gelenke|Phalangen D1 (Daumen)|2 Glieder
+Hand und Gelenke|Knochentyp der Phalangen|Röhrenknochen
+Hand und Gelenke|Gelenk (Definition)|Kontaktstelle von Skelettelementen, die gegeneinander bewegt werden können
+Hand und Gelenke|Synarthrose|Gelenk ohne Gelenkspalt und ohne Kapsel
+Hand und Gelenke|Diarthrose|Echtes Gelenk (Articulatio synovialis) mit Gelenkspalt und Kapsel
+Hand und Gelenke|Syndesmose|Bindegewebige Verbindung (z. B. Schädelnähte)
+Hand und Gelenke|Synchondrose|Knorpelige Verbindung
+Hand und Gelenke|Symphyse|Faserknorpelige Verbindung (z. B. Symphysis pubica)
+Hand und Gelenke|Synostose|Knöcherne Verbindung (z. B. Kreuzbein)
+Hand und Gelenke|Fontanellen|Bindegewebshäute zwischen den Schädelplatten Neugeborener (temporäre Syndesmosen)
+Hand und Gelenke|Suturae|Schädelnähte (aus Fontanellen entstanden)
+Hand und Gelenke|Hydrozephalus|Erweiterung der Hirnventrikel durch Liquorstau („Wasserkopf“)
+Hand und Gelenke|Hydrozephalus beim Säugling: Zeichen|Wachsender Kopfumfang, gespannte Fontanelle, Sonnenuntergangsphänomen
+Hand und Gelenke|Syndesmosenriss betrifft typischerweise|Das Sprunggelenk
+Hand und Gelenke|Pseudarthrose|Ausbleibende Knochenbruchheilung (Falschgelenk) – nicht Arthrose!
+Hand und Gelenke|Arthrose|Gelenkverschleiß
+Hand und Gelenke|Scharniergelenk: Freiheitsgrade|1
+Hand und Gelenke|Radgelenk: Freiheitsgrade|1
+Hand und Gelenke|Sattelgelenk: Freiheitsgrade|2
+Hand und Gelenke|Kugelgelenk: Freiheitsgrade|3
+Hand und Gelenke|Eigelenk: Freiheitsgrade|2
+Hand und Gelenke|Gelenktyp von DIP und PIP|Scharniergelenk
+Hand und Gelenke|Gelenktyp des proximalen Radioulnargelenks|Radgelenk (Pro-/Supination)
+Hand und Gelenke|Gelenktyp des Daumensattelgelenks|Sattelgelenk
+Hand und Gelenke|Gelenktyp des proximalen Handgelenks|Eigelenk
+Hand und Gelenke|Fingergrundgelenke (MCP): Bänder|In Flexion gespannt
+Hand und Gelenke|Intrinsic-Plus-Stellung|Ruhigstellungsposition der Hand gegen Kapsel-/Bandkontrakturen
+Hand und Gelenke|Seitenbänder|Stabilisieren Fingergelenke seitlich
+Hand und Gelenke|Neutral-Null-Methode|Standard zur Messung von Gelenkbeweglichkeit
+Hand und Gelenke|PIP-Seitenbandruptur: Therapie|Buddy-Tape für ca. 6 Wochen
+Hand und Gelenke|Buddy-Taping|Verletzten Finger an gesunden Nachbarfinger kleben
+Hand und Gelenke|Skidaumen|Riss/Überdehnung des ulnaren Seitenbandes am Daumengrundgelenk
+Hand und Gelenke|Stener-Läsion|Band schlägt um und klemmt ein – OP nötig
+Hand und Gelenke|Konservative Skidaumen-Therapie|3–6 Wochen Daumenorthese oder Gips
+Hand und Gelenke|Diskus im Handgelenk|Ausgleich im Eigelenk
+Hand und Gelenke|Radiusfraktur: operative Versorgung|Osteosynthese
+Knochen|Knochenanzahl beim Menschen|Mehr als 200
+Knochen|Knochen gehört zum …|Passiven Bewegungsapparat (Skelett und Skelettverbindungen)
+Knochen|Anteil des Knochens am Körpergewicht|Ca. 5 %
+Knochen|Kompakta|Dichte äußere Knochenschicht
+Knochen|Spongiosa|Schwammartige innere Knochenstruktur
+Knochen|Markräume enthalten|Blutbildendes Knochenmark
+Knochen|Osteoblasten|Knochenaufbauende Zellen
+Knochen|Osteoklasten|Knochenabbauende Zellen
+Knochen|BMU|Knochen-multizelluläre Einheit (Osteoblasten + Osteoklasten)
+Knochen|Osteoporose|Abbau überwiegt: grobe Spongiosa, Wirbelbrüche
+Knochen|Überlastungsbruch: Ursache|Vermehrter Abbau durch Überlastung
+Knochen|Epiphyse|Gelenkende des Röhrenknochens
+Knochen|Metaphyse|Abschnitt zwischen Epiphyse und Diaphyse
+Knochen|Diaphyse|Schaft des Röhrenknochens
+Knochen|Epiphysenfuge|Wachstumszone
+Knochen|Apophyse|Knochenkern, der später mit dem größeren Knochen verwächst
+Knochen|Kurzer Knochen: Beispiel|Karpalknochen
+Knochen|Platter Knochen: Beispiele|Schädelknochen, Os ilium
+Knochen|Pneumatisierter Knochen: Beispiel|Os frontale mit Stirnhöhle
+Knochen|Periost|Knochenhaut
+Knochen|Periost: Aufgaben (4)|Ernährung, Wachstum/Heilung, Schmerzempfinden, Ansatzpunkt für Muskeln/Sehnen
+Knochen|Periostitis|Knochenhautentzündung (z. B. Schienbeinkantensyndrom)
+Knochen|Kurzer Knochen zum Palpieren|Os pisiforme (Erbsenbein)
+Knochen|Pneumatisierter Knochen wird untersucht durch …|Perkussion (Beklopfen)
+Muskeln|Intrinsische Muskeln|Ursprung und Ansatz in derselben Region (Binnenmuskulatur)
+Muskeln|Extrinsische Muskeln|Ursprung außerhalb der Region, lange Sehnen ziehen hinein
+Muskeln|Funktion intrinsischer Handmuskeln|Feinmotorik und lokale Stabilität
+Muskeln|Aufbau des Muskels (aufsteigend)|Myofilamente → Sarkomere → Myofibrillen → Muskelfasern → Muskel
+Muskeln|Myofilamente|Aktin und Myosin
+Muskeln|Muskelbauch|Kontraktiler Teil des Muskels
+Muskeln|Sehne|Verlängerung des Muskels
+Muskeln|Zweiköpfiger Muskel: Beispiel|M. biceps brachii
+Muskeln|Mehrbäuchiger Muskel: Beispiel|M. rectus abdominis („Sixpack“)
+Muskeln|Muskelfaszie|Derbe Bindegewebshülle des Muskels
+Muskeln|Struktur der Muskelfaszie|Scherengitterstruktur (lässt Kontraktion zu)
+Muskeln|Muskelfaserriss|Schwere Verletzung: mehrere Muskelfasern/Faserbündel reißen komplett
+Muskeln|Gruppenfaszie|Bildet Muskellogen
+Muskeln|Kompartmentsyndrom|Zu hoher Druck innerhalb der Gruppenfaszie
+Muskeln|Formen des Kompartmentsyndroms (2)|Exertional (beim Läufer) und traumatisch
+Muskeln|Muskelansatz am Knochen erfolgt stets …|Sehnig
+Muskeln|Aponeurose|Breite Sehne
+Muskeln|Hypomochlion|Umlenkstelle für lange Sehnen
+Muskeln|Sesambein|Verknöcherung in der Sehne an einer Umlenkstelle (z. B. Patella)
+Muskeln|Tastbare Sesambeine der Hand|Sesambeine des Daumens und Os pisiforme
+Muskeln|Muskelursprung|Stammnah (proximal)
+Muskeln|Muskelansatz|Peripher (distal)
+Muskeln|Sehnenscheide|Schutzhülle um eine Sehne
+Muskeln|Tendovaginitis|Sehnenscheidenentzündung
+Muskeln|1. Strecksehnenfach: Sehnen|M. abductor pollicis longus und M. extensor pollicis brevis
+Muskeln|Tendovaginitis stenosans de Quervain|Entzündung des 1. Strecksehnenfachs
+Muskeln|Finkelstein-Test|Diagnose der Tendovaginitis stenosans de Quervain
+Muskeln|Pronatoren und Beugemuskulatur des Unterarms: Ursprung|Ulnar/volar
+Muskeln|Beugesehnen verlaufen unter dem …|Ligamentum transversum (Karpaltunnel)
+Muskeln|Ringbänder|Halten die Beugesehnen am Finger am Knochen
+Handwurzel|Os scaphoideum|Kahnbein
+Handwurzel|Os lunatum|Mondbein
+Handwurzel|Os triquetrum|Dreieckbein
+Handwurzel|Os pisiforme|Erbsenbein
+Handwurzel|Os trapezium|Großes Vieleckbein
+Handwurzel|Os trapezoideum|Kleines Vieleckbein
+Handwurzel|Os capitatum|Kopfbein
+Handwurzel|Os hamatum|Hakenbein
+Handwurzel|Proximale Handwurzelreihe (radial → ulnar)|Scaphoideum, Lunatum, Triquetrum, Pisiforme
+Handwurzel|Distale Handwurzelreihe (radial → ulnar)|Trapezium, Trapezoideum, Capitatum, Hamatum
+Handwurzel|Anzahl echter proximaler Handwurzelknochen|3
+Handwurzel|Anzahl echter distaler Handwurzelknochen|4
+Handwurzel|Os pisiforme: Sonderstellung|Sesambein in der Sehne des M. flexor carpi ulnaris
+Handwurzel|Ossa carpalia: Knochentyp|Kurze Knochen
+Handwurzel|Ulna|Elle – in ganzer Länge gut tastbar
+Handwurzel|Radius|Speiche – nur distal knöchern abgrenzbar
+Handwurzel|Gelenkfläche des Radius|Bogenförmig (Eigelenk)
+Handwurzel|Hamulus ossis hamati|Haken des Hakenbeins (N. ulnaris in der Nähe)
+Handwurzel|Hamulusfraktur: typische Ursache|Schlägersport (Golf, Tennis, Baseball)
+Handwurzel|Hamulusfraktur: Begleitrisiko|Ulnarisschädigung (Loge-de-Guyon-Syndrom), Beugesehnenruptur
+Handwurzel|Wo tastet man das Kahnbein?|In der Tabatière bei Ulnarabduktion
+Handwurzel|Tabatière|Anatomische Schnupftabakgrube an der Daumenbasis
+Handwurzel|Häufigster Bruch der Handwurzel|Skaphoidfraktur (ca. 50–80 %)
+Handwurzel|Skaphoidfraktur: Unfallmechanismus|Sturz auf die überstreckte Hand (Dorsalextension)
+Handwurzel|Skaphoidfraktur: typische Patienten|Junge Männer, 20–30 Jahre
+Handwurzel|Skaphoid: Durchblutung|Von distal nach proximal
+Handwurzel|Skaphoidfraktur: Komplikation|Pseudarthrose
+Handwurzel|Skaphoidfraktur: Druckschmerz in der …|Tabatière
+Handwurzel|Skapholunäre Dissoziation|Riss des SL-Bandes (Lig. scapholunatum)
+Handwurzel|Häufigste isolierte Bandverletzung der Handwurzel|Skapholunäre Dissoziation
+Handwurzel|Watson-Test (Scaphoid-Shift-Test)|Test auf skapholunäre Instabilität
+Handwurzel|Karpale Instabilität: initiales Röntgen|Evtl. unauffällig
+Gefäße und Nerven|Arterien der Hand (2)|A. radialis und A. ulnaris
+Gefäße und Nerven|Allen-Test|Prüft Durchblutung von A. radialis und A. ulnaris (Kollateralen)
+Gefäße und Nerven|Oberflächliche Handvenen (2)|V. cephalica und V. basilica
+Gefäße und Nerven|Venenklappen|Verhindern Rückfluss des Blutes
+Gefäße und Nerven|Venöse Blutabnahme|Punktion einer oberflächlichen Armvene
+Gefäße und Nerven|ZNS|Zentrales Nervensystem
+Gefäße und Nerven|PNS|Peripheres Nervensystem
+Gefäße und Nerven|Drei Hauptnerven der Hand|N. medianus, N. ulnaris, N. radialis
+Gefäße und Nerven|Nervenengpass: Karpaltunnelsyndrom|N. medianus
+Gefäße und Nerven|Tinel-Test|Perkussion eines Nervs (z. B. N. medianus beim Karpaltunnelsyndrom)
+Gefäße und Nerven|Periphere Lähmung|Schlaff
+Gefäße und Nerven|Zentrale Lähmung|Spastisch
+Gefäße und Nerven|Eudiadochokinese|Fähigkeit zu schnellen Wechselbewegungen (Koordinationstest)
+Gefäße und Nerven|Koordinationstests (2)|Finger-Finger-Versuch und Finger-Nasenversuch
+Gefäße und Nerven|Z. T. genetisch verankert|Händefalten, Armeverschränken, Beineüberkreuzen
+Bildgebung|MRT|Kernspintomographie
+Bildgebung|CT|Computertomographie
+Bildgebung|Angiographie|Kontrastmittel in Arterien
+Bildgebung|Phlebographie|Kontrastmittel in Venen
+Bildgebung|DSA|Digitale Subtraktions-Angiographie`;
+const CARDS=RAW.trim().split("\n").map(l=>{const [c,f,b]=l.split("|");return{cat:c,f,b,id:hash(c+"|"+f)}});
+function hash(s){let h=5381;for(const ch of s)h=((h<<5)+h+ch.charCodeAt(0))|0;return String(h)}
+const KEY="anatomie_done_v1";
+let done={};
+try{done=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}};
+const $=id=>document.getElementById(id);
+const cats=[...new Set(CARDS.map(c=>c.cat))];
+
+function renderHome(){
+  const n=CARDS.filter(c=>done[c.id]).length, t=CARDS.length;
+  const p=Math.round(n/t*100);
+  $("pct").textContent=p+" %"; $("pbar").style.width=p+"%";
+  $("pcount").textContent=n+" von "+t+" Karten abgearbeitet";
+  $("startAll").disabled=n===t;
+  $("cats").innerHTML="";
+  for(const c of cats){
+    const all=CARDS.filter(x=>x.cat===c), d=all.filter(x=>done[x.id]).length;
+    const el=document.createElement("div");el.className="cat";
+    el.innerHTML=`<div><b>${c}</b> <span class="mute">${d}/${all.length} (${Math.round(d/all.length*100)} %)</span><div class="bar"><i style="width:${d/all.length*100}%"></i></div></div>`;
+    const b=document.createElement("button");b.textContent="Lernen";b.disabled=d===all.length;
+    b.onclick=()=>start(c);el.appendChild(b);$("cats").appendChild(el);
+  }
+}
+
+let queue=[],wrong=[],cur=null,flipped=false,total=0,round=1,sessDone=0;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+function start(cat){
+  queue=shuffle(CARDS.filter(c=>!done[c.id]&&(!cat||c.cat===cat)));
+  total=queue.length;wrong=[];round=1;sessDone=0;
+  $("home").classList.add("hidden");$("study").classList.remove("hidden");next();
+}
+function next(){
+  if(!queue.length&&wrong.length){queue=shuffle(wrong);wrong=[];round++}
+  if(!queue.length){finish();return}
+  cur=queue.shift();flipped=false;draw();
+}
+function draw(){
+  const c=$("card");c.className="panel card"+(flipped?" back":"");
+  c.innerHTML=`<div class="tag">${cur.cat}${flipped?" · Antwort":""}</div><div class="txt"></div>${flipped?"":'<div class="hint">Tippen zum Umdrehen</div>'}`;
+  c.querySelector(".txt").textContent=flipped?cur.b:cur.f;
+  $("ans").classList.toggle("hidden",!flipped);
+  $("sinfo").textContent="Durchgang "+round;
+  $("sbar").style.width=(sessDone/total*100)+"%";
+  $("sgl").textContent=sessDone+" von "+total+" richtig · noch "+(queue.length+wrong.length+1)+" offen in dieser Sitzung";
+}
+function answer(ok){
+  if(!flipped)return;
+  if(ok){done[cur.id]=1;sessDone++;save()}else wrong.push(cur);
+  next();
+}
+function finish(){
+  $("card").className="panel card";
+  $("card").innerHTML=`<div class="txt">🎉 Alles richtig!</div><div class="hint">${total} Karten abgearbeitet</div>`;
+  $("ans").classList.add("hidden");$("sbar").style.width="100%";
+  $("sgl").textContent="";$("sinfo").textContent="";cur=null;
+}
+$("card").onclick=()=>{if(cur&&!flipped){flipped=true;draw()}};
+$("bYes").onclick=()=>answer(true);$("bNo").onclick=()=>answer(false);
+$("back").onclick=()=>{$("study").classList.add("hidden");$("home").classList.remove("hidden");renderHome()};
+$("startAll").onclick=()=>start();
+$("resetBtn").onclick=()=>{$("resetBtn").hidden=true;$("rconf").hidden=false};
+$("rNo").onclick=()=>{$("rconf").hidden=true;$("resetBtn").hidden=false};
+$("rYes").onclick=()=>{done={};save();renderHome();$("rNo").onclick()};
+document.addEventListener("keydown",e=>{
+  if($("study").classList.contains("hidden"))return;
+  if(e.key===" "){e.preventDefault();if(cur&&!flipped){flipped=true;draw()}}
+  else if(e.key==="ArrowRight")answer(true);else if(e.key==="ArrowLeft")answer(false);
+});
+renderHome();
+</script>
