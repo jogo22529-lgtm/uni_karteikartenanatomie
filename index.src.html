@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Anatomie Karteikarten</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1d2733;--mute:#66758a;--line:#dde3ea;--acc:#2f6fed;--ok:#1f9d55;--bad:#d6453d}
+@media(prefers-color-scheme:dark){:root{--bg:#10151c;--card:#1a222d;--ink:#e8edf3;--mute:#92a0b3;--line:#2b3644;--acc:#6b9bff;--ok:#3ecf7c;--bad:#ff7a70}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.big{font-size:44px;font-weight:700}
+.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.mute{color:var(--mute);font-size:14px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 16px;cursor:pointer}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.cat{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.cat:first-of-type{border-top:0}
+.cat .bar{margin-top:6px}
+.cat>div:first-child{flex:1}
+.card{min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;cursor:pointer;user-select:none}
+.card .tag{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-bottom:12px}
+.card .txt{font-size:26px;font-weight:600}
+.card.back .txt{color:var(--acc)}
+.card .hint{margin-top:18px;font-size:13px;color:var(--mute)}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.answers button{padding:16px;font-weight:600;font-size:17px}
+.no{color:var(--bad);border-color:var(--bad)}
+.yes{color:var(--ok);border-color:var(--ok)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<div id="home">
+  <h1>Anatomie Karteikarten</h1>
+  <div class="panel">
+    <div class="mute">Gesamtfortschritt</div>
+    <div class="big" id="pct">0 %</div>
+    <div class="bar"><i id="pbar"></i></div>
+    <div class="mute" id="pcount" style="margin-top:6px"></div>
+  </div>
+  <div class="panel">
+    <div class="row">
+      <button class="primary" id="startAll">Alle offenen lernen</button>
+      <button id="resetBtn">Fortschritt zurücksetzen</button>
+    </div>
+    <p class="mute" style="margin-bottom:0">Falsch beantwortete Karten kommen so lange wieder, bis du sie richtig hattest. Der Fortschritt bleibt in diesem Browser gespeichert.</p>
+  </div>
+  <div class="panel" id="cats"></div>
+</div>
+
+<div id="study" class="hidden">
+  <div class="top">
+    <button id="back">← Übersicht</button>
+    <div class="mute" id="sinfo"></div>
+  </div>
+  <div class="bar" style="margin-bottom:6px"><i id="sbar"></i></div>
+  <div class="mute" id="sgl" style="margin-bottom:14px"></div>
+  <div class="panel card" id="card"></div>
+  <div class="answers hidden" id="ans">
+    <button class="no" id="bNo">✗ Falsch (←)</button>
+    <button class="yes" id="bYes">✓ Richtig (→)</button>
+  </div>
+  <div class="mute" style="text-align:center;margin-top:10px">Leertaste / Tippen = umdrehen</div>
+</div>
+</main>
+<script>
+const RAW=`/*CARDS*/`;
+const CARDS=RAW.trim().split("\n").map(l=>{const [c,f,b]=l.split("|");return{cat:c,f,b,id:hash(c+"|"+f)}});
+function hash(s){let h=5381;for(const ch of s)h=((h<<5)+h+ch.charCodeAt(0))|0;return String(h)}
+const KEY="anatomie_done_v1";
+let done={};
+try{done=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}};
+const $=id=>document.getElementById(id);
+const cats=[...new Set(CARDS.map(c=>c.cat))];
+
+function renderHome(){
+  const n=CARDS.filter(c=>done[c.id]).length, t=CARDS.length;
+  const p=Math.round(n/t*100);
+  $("pct").textContent=p+" %"; $("pbar").style.width=p+"%";
+  $("pcount").textContent=n+" von "+t+" Karten abgearbeitet";
+  $("startAll").disabled=n===t;
+  $("cats").innerHTML="";
+  for(const c of cats){
+    const all=CARDS.filter(x=>x.cat===c), d=all.filter(x=>done[x.id]).length;
+    const el=document.createElement("div");el.className="cat";
+    el.innerHTML=`<div><b>${c}</b> <span class="mute">${d}/${all.length} (${Math.round(d/all.length*100)} %)</span><div class="bar"><i style="width:${d/all.length*100}%"></i></div></div>`;
+    const b=document.createElement("button");b.textContent="Lernen";b.disabled=d===all.length;
+    b.onclick=()=>start(c);el.appendChild(b);$("cats").appendChild(el);
+  }
+}
+
+let queue=[],wrong=[],cur=null,flipped=false,total=0,round=1,sessDone=0;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+function start(cat){
+  queue=shuffle(CARDS.filter(c=>!done[c.id]&&(!cat||c.cat===cat)));
+  total=queue.length;wrong=[];round=1;sessDone=0;
+  $("home").classList.add("hidden");$("study").classList.remove("hidden");next();
+}
+function next(){
+  if(!queue.length&&wrong.length){queue=shuffle(wrong);wrong=[];round++}
+  if(!queue.length){finish();return}
+  cur=queue.shift();flipped=false;draw();
+}
+function draw(){
+  const c=$("card");c.className="panel card"+(flipped?" back":"");
+  c.innerHTML=`<div class="tag">${cur.cat}${flipped?" · Antwort":""}</div><div class="txt"></div>${flipped?"":'<div class="hint">Tippen zum Umdrehen</div>'}`;
+  c.querySelector(".txt").textContent=flipped?cur.b:cur.f;
+  $("ans").classList.toggle("hidden",!flipped);
+  $("sinfo").textContent="Durchgang "+round;
+  $("sbar").style.width=(sessDone/total*100)+"%";
+  $("sgl").textContent=sessDone+" von "+total+" richtig · noch "+(queue.length+wrong.length+1)+" offen in dieser Sitzung";
+}
+function answer(ok){
+  if(!flipped)return;
+  if(ok){done[cur.id]=1;sessDone++;save()}else wrong.push(cur);
+  next();
+}
+function finish(){
+  $("card").className="panel card";
+  $("card").innerHTML=`<div class="txt">🎉 Alles richtig!</div><div class="hint">${total} Karten abgearbeitet</div>`;
+  $("ans").classList.add("hidden");$("sbar").style.width="100%";
+  $("sgl").textContent="";$("sinfo").textContent="";cur=null;
+}
+$("card").onclick=()=>{if(cur&&!flipped){flipped=true;draw()}};
+$("bYes").onclick=()=>answer(true);$("bNo").onclick=()=>answer(false);
+$("back").onclick=()=>{$("study").classList.add("hidden");$("home").classList.remove("hidden");renderHome()};
+$("startAll").onclick=()=>start();
+$("resetBtn").onclick=()=>{if(confirm("Gesamten Fortschritt wirklich zurücksetzen?")){done={};save();renderHome()}};
+document.addEventListener("keydown",e=>{
+  if($("study").classList.contains("hidden"))return;
+  if(e.key===" "){e.preventDefault();if(cur&&!flipped){flipped=true;draw()}}
+  else if(e.key==="ArrowRight")answer(true);else if(e.key==="ArrowLeft")answer(false);
+});
+renderHome();
+</script>
+</body>
+</html>
